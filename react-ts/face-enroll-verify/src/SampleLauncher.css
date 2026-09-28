@@ -1,0 +1,14 @@
+.sample-launcher { min-height: 100vh; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 36px 20px; color: #342e2d; text-align: center; }
+.launcher-eyebrow { margin: 0; color: #8b7b79; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.sample-launcher h1 { margin: 0; font-size: clamp(32px, 5vw, 48px); letter-spacing: -.04em; }
+.launcher-description { max-width: 560px; margin: 0 0 16px; color: #817775; }
+.sample-options { display: grid; width: min(780px, 100%); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; text-align: left; }
+.sample-option { display: grid; min-height: 230px; align-content: start; gap: 12px; border: 1px solid #e4dfdd; border-radius: 16px; padding: 24px; color: inherit; background: white; box-shadow: 0 8px 24px rgba(65, 51, 48, .06); text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.sample-option:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(65, 51, 48, .12); }
+.sample-option.enhanced { border-color: #cbb4e2; }
+.sample-tag { color: #8b7b79; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.sample-option h2 { margin: 0; font-size: 21px; }
+.sample-option p { min-height: 42px; margin: 0; color: #817775; font-size: 14px; line-height: 1.5; }
+.sample-launch { align-self: end; margin-top: 10px; color: #69535f; font-size: 13px; font-weight: 800; }
+.launcher-footnote { margin: 12px 0 0; color: #817775; font-size: 12px; }
+@media (max-width: 620px) { .sample-options { grid-template-columns: 1fr; } .sample-option { min-height: 190px; } }

@@ -3,8 +3,18 @@ import type {
   FaceLivenessDetailType,
   FaceLivenessWebComponent,
 } from "@regulaforensics/vp-frontend-face-components";
-import "@regulaforensics/vp-frontend-face-components";
+import {
+  FaceLivenessType,
+} from "@regulaforensics/vp-frontend-face-components";
 import "./App.css";
+
+type LivenessMode = "active" | "passive" | "blink";
+
+const livenessModes: Record<LivenessMode, { label: string; value: FaceLivenessType }> = {
+  active: { label: "Active (head turns)", value: FaceLivenessType.ACTIVE },
+  passive: { label: "Passive (selfie)", value: FaceLivenessType.PASSIVE },
+  blink: { label: "Passive + blink", value: FaceLivenessType.BLINK },
+};
 
 const containerStyle = {
   display: "flex",
@@ -29,6 +39,7 @@ const buttonStyle = {
 
 function App() {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [livenessMode, setLivenessMode] = React.useState<LivenessMode>("blink");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const componentRef = React.useRef<FaceLivenessWebComponent | null>(null);
   const listener = (data: CustomEvent<FaceLivenessDetailType>) => {
@@ -49,12 +60,14 @@ function App() {
   React.useEffect(() => {
     if (isOpen && componentRef.current) {
       componentRef.current.settings = {
+        url: "/face-api",
+        livenessType: livenessModes[livenessMode].value,
         customization: {
           onboardingScreenStartButtonBackground: "#5b5050",
         },
       };
     }
-  }, [isOpen]);
+  }, [isOpen, livenessMode]);
 
   React.useEffect(() => {
     const containerCurrent = containerRef.current;
@@ -70,9 +83,22 @@ function App() {
       {isOpen ? (
         <face-liveness ref={componentRef}></face-liveness>
       ) : (
-        <button style={buttonStyle} onClick={() => setIsOpen(true)}>
-          Open component
-        </button>
+        <div>
+          <label htmlFor="liveness-mode">Liveness mode</label>
+          <select
+            id="liveness-mode"
+            value={livenessMode}
+            onChange={(event) => setLivenessMode(event.target.value as LivenessMode)}
+            style={{ marginLeft: 12, padding: "10px" }}
+          >
+            {(Object.keys(livenessModes) as LivenessMode[]).map((mode) => (
+              <option key={mode} value={mode}>{livenessModes[mode].label}</option>
+            ))}
+          </select>
+          <button style={{ ...buttonStyle, marginLeft: 12 }} onClick={() => setIsOpen(true)}>
+            Open component
+          </button>
+        </div>
       )}
     </div>
   );
