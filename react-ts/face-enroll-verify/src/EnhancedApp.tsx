@@ -25,14 +25,12 @@ const storageKey = "face-enroll-verify-sample-v2";
 
 type Operation = "enroll" | "verify" | "liveness" | null;
 type GroupMode = "default" | "custom";
-type IdentifierMode = "personId" | "externalId" | "both" | "empty";
+type IdentifierMode = "personId" | "empty";
 type Preset =
   | "ready"
   | "unknown-group"
   | "unknown-person"
-  | "unknown-external"
-  | "empty-identifiers"
-  | "both-identifiers";
+  | "empty-identifiers";
 
 type FormState = {
   groupMode: GroupMode;
@@ -58,7 +56,9 @@ type EventLogEntry = {
   action: string;
   status?: number;
   reason?: string;
+  rawMsg?: string;
   transactionId?: string;
+  payload: string;
   recovered?: boolean;
 };
 
@@ -78,6 +78,7 @@ type RawRequestRecord = {
 type RawRequests = Record<Exclude<Operation, null>, RawRequestRecord>;
 
 type HttpErrorSnapshot = {
+  operation: Exclude<Operation, null>;
   capturedAt: string;
   method: string;
   url: string;
@@ -139,6 +140,15 @@ function responseJson(value: unknown): string {
     },
     2,
   );
+}
+
+function formatHttpResponseBody(body: string): string {
+  if (!body) return "(empty response body)";
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return body;
+  }
 }
 
 function requestBodyPreview(body: BodyInit | null | undefined): unknown {
@@ -261,6 +271,7 @@ function App() {
         pendingErrorRef.current = message;
         setLastError(message);
         setHttpError({
+          operation,
           capturedAt: new Date().toLocaleTimeString(),
           method: requestMethod,
           url,
@@ -332,31 +343,11 @@ function App() {
   const verifyConfig = React.useMemo(() => {
     const threshold = numberOrUndefined(form.threshold);
     const suffix = threshold === undefined ? {} : { threshold };
-    if (form.identifierMode === "externalId") {
-      return { externalId: form.externalId.trim(), ...suffix };
-    }
-    if (form.identifierMode === "both") {
-      return {
-        personId: form.personId.trim(),
-        externalId: form.externalId.trim(),
-        ...suffix,
-      } as unknown as NonNullable<FaceVerifySettings["verify"]>;
-    }
     if (form.identifierMode === "empty") {
       return { ...suffix } as unknown as NonNullable<FaceVerifySettings["verify"]>;
     }
     return { personId: form.personId.trim(), ...suffix };
-  }, [form.externalId, form.identifierMode, form.personId, form.threshold]);
-
-  const configurationPreview = React.useMemo(
-    () => ({
-      common: commonSettings,
-      enroll: enrollConfig,
-      verify: verifyConfig,
-      note: "All requests are made internally by the Web Component SDK.",
-    }),
-    [commonSettings, enrollConfig, verifyConfig],
-  );
+  }, [form.identifierMode, form.personId, form.threshold]);
 
   React.useEffect(() => {
     if (openComponent === "enroll" && enrollComponentRef.current) {
@@ -378,7 +369,7 @@ function App() {
       source: string,
       detail: {
         action: string;
-        data: { status?: number; reason?: string; transactionId?: string } | null;
+        data: { status?: number; reason?: string; rawMsg?: string; transactionId?: string } | null;
       },
     ) => {
       const data = detail.data;
@@ -389,11 +380,13 @@ function App() {
         action: detail.action,
         status: data?.status,
         reason: data?.reason,
+        rawMsg: data?.rawMsg,
         transactionId: data?.transactionId,
+        payload: responseJson(detail),
       };
       setEventLog((previous) => [entry, ...previous].slice(0, 40));
-      if (data?.status === ResponseCode.ERROR && data.reason) {
-        if (!httpErrorRef.current) pendingErrorRef.current = data.reason;
+      if (data?.status === ResponseCode.ERROR && (data.reason || data.rawMsg)) {
+        if (!httpErrorRef.current) pendingErrorRef.current = data.rawMsg || data.reason || "";
       }
     };
 
@@ -409,7 +402,7 @@ function App() {
         entry.id >= sessionStartEventIdRef.current &&
         entry.source === source &&
         entry.status === ResponseCode.ERROR
-          ? { ...entry, status: undefined, reason: undefined, recovered: true }
+          ? { ...entry, status: undefined, reason: undefined, rawMsg: undefined, recovered: true }
           : entry,
       ));
     };
@@ -494,12 +487,8 @@ function App() {
       updateForm({ groupMode: "custom", groupId: "unknown-group-id" });
     } else if (nextPreset === "unknown-person") {
       updateForm({ identifierMode: "personId", personId: "unknown-person-id" });
-    } else if (nextPreset === "unknown-external") {
-      updateForm({ identifierMode: "externalId", externalId: "unknown-external-id" });
     } else if (nextPreset === "empty-identifiers") {
       updateForm({ identifierMode: "empty", personId: "", externalId: "" });
-    } else if (nextPreset === "both-identifiers") {
-      updateForm({ identifierMode: "both", personId: form.personId || "person-id-test", externalId: form.externalId || "external-id-test" });
     }
   };
 
@@ -562,9 +551,7 @@ function App() {
                 <option value="ready">Ready: Enroll → Verify</option>
                 <option value="unknown-group">Negative: unknown groupId</option>
                 <option value="unknown-person">Negative: unknown personId</option>
-                <option value="unknown-external">Negative: unknown externalId</option>
                 <option value="empty-identifiers">Negative: empty identifiers</option>
-                <option value="both-identifiers">Negative: both identifiers</option>
               </select>
             </div>
 
@@ -572,7 +559,7 @@ function App() {
               <label>Group<select value={form.groupMode} onChange={(event) => updateForm({ groupMode: event.target.value as GroupMode })}><option value="default">Default group / no groups field</option><option value="custom">Custom groupId</option></select></label>
               <label>groupId<input value={form.groupId} disabled={form.groupMode === "default"} placeholder="group-id" onChange={(event) => updateForm({ groupId: event.target.value })} /></label>
               <label>Person name for Enroll<input value={form.name} onChange={(event) => updateForm({ name: event.target.value })} /></label>
-              <label>externalId for Enroll<input value={form.enrollExternalId} placeholder="optional; same value can be verified" onChange={(event) => updateForm({ enrollExternalId: event.target.value })} /></label>
+              <label>externalId for Enroll<input value={form.enrollExternalId} placeholder="optional Enroll identifier" onChange={(event) => updateForm({ enrollExternalId: event.target.value })} /></label>
             </div>
 
             <div className="duplicate-search-box">
@@ -585,11 +572,9 @@ function App() {
             </div>
 
             <div className="divider" />
-            <div className="section-heading"><h3>Verify identifier</h3><span className="hint">SDK принимает один идентификатор; оба/пустой — negative test</span></div>
+            <div className="section-heading"><h3>Verify identifier</h3><span className="hint">Эта версия SDK поддерживает Verify только по personId.</span></div>
             <div className="identifier-grid">
               <label className="radio-card"><input type="radio" checked={form.identifierMode === "personId"} onChange={() => updateForm({ identifierMode: "personId" })} /><span>personId</span><input value={form.personId} placeholder="saved personId" onChange={(event) => updateForm({ personId: event.target.value })} /></label>
-              <label className="radio-card"><input type="radio" checked={form.identifierMode === "externalId"} onChange={() => updateForm({ identifierMode: "externalId" })} /><span>externalId</span><input value={form.externalId} placeholder="saved externalId" onChange={(event) => updateForm({ externalId: event.target.value })} /></label>
-              <label className="radio-card compact-radio"><input type="radio" checked={form.identifierMode === "both"} onChange={() => updateForm({ identifierMode: "both" })} /><span>Both</span></label>
               <label className="radio-card compact-radio"><input type="radio" checked={form.identifierMode === "empty"} onChange={() => updateForm({ identifierMode: "empty" })} /><span>Empty</span></label>
             </div>
 
@@ -610,18 +595,22 @@ function App() {
           </section>
 
           <section className="result-grid">
-            <ResultCard title="Saved profile" tone={form.personId || form.externalId ? "success" : "neutral"}><dl className="data-list"><dt>personId</dt><dd>{form.personId || "—"}</dd><dt>externalId</dt><dd>{form.externalId || "—"}</dd><dt>Persistence</dt><dd>localStorage</dd></dl><p className="hint">После успешного Enroll оба идентификатора подставляются сюда автоматически.</p></ResultCard>
+            <ResultCard title="Saved profile" tone={form.personId || form.externalId ? "success" : "neutral"}><dl className="data-list"><dt>personId</dt><dd>{form.personId || "—"}</dd><dt>externalId</dt><dd>{form.externalId || "—"}</dd><dt>Persistence</dt><dd>localStorage</dd></dl><p className="hint">Enroll сохраняет оба идентификатора; текущий SDK выполняет Verify только по personId.</p></ResultCard>
             <ResultCard title="Enroll result" tone={enrollResponse ? "success" : "neutral"}>{enrollResponse ? <><ResultImage images={enrollResponse.images} /><dl className="data-list"><dt>Enrolled</dt><dd>{String(enrollResponse.enrollResult?.enrolled)}</dd><dt>Liveness</dt><dd>{livenessLabel(enrollResponse.status)}</dd><dt>Person</dt><dd>{enrollResponse.enrollResult?.person?.name || enrollResponse.enrollResult?.search?.persons?.[0]?.name || "—"}</dd><dt>Duplicates</dt><dd>{enrollResponse.enrollResult?.search?.persons?.length ?? 0}</dd></dl>{enrollResponse.enrollResult?.search?.persons?.length ? <div className="search-results">{enrollResponse.enrollResult.search.persons.map((person) => <div className="search-result-row" key={person.id}><strong>{person.name || "Unnamed"}</strong><span>{person.externalId || person.id}</span></div>)}</div> : null}</> : <p className="muted">Результат появится после Enroll.</p>}</ResultCard>
             <ResultCard title="Verify result" tone={verifyResponse?.verifyResult?.verified ? "success" : "neutral"}>{verifyResponse ? <dl className="data-list"><dt>Verified</dt><dd>{String(verifyResponse.verifyResult?.verified)}</dd><dt>Match</dt><dd>{String(verifyResponse.verifyResult?.match?.verified ?? false)}</dd><dt>Similarity</dt><dd>{formatSimilarity(verifyResponse.verifyResult?.match?.similarity)}</dd><dt>Liveness</dt><dd>{livenessLabel(verifyResponse.status)}</dd></dl> : <p className="muted">Результат появится после Verify.</p>}</ResultCard>
             <ResultCard title="Liveness result" tone={livenessResponse?.status === FaceLivenessResultStatus.CONFIRMED ? "success" : "neutral"}>{livenessResponse ? <dl className="data-list"><dt>Status</dt><dd>{livenessLabel(livenessResponse.status)}</dd><dt>Type</dt><dd>{livenessResponse.type} / passive = 1</dd><dt>Transaction</dt><dd>{livenessResponse.transactionId || "—"}</dd></dl> : <p className="muted">Можно проверить liveness отдельно.</p>}</ResultCard>
           </section>
 
           {lastError && <section className="error-banner"><strong>Error</strong><span>{lastError}</span><span className="hint">Событие SDK и тело HTTP-ответа, если SDK получил ответ от сервиса.</span></section>}
-          {httpError && <section className="panel http-error-card"><div><strong>HTTP {httpError.status} {httpError.statusText}</strong><span className="hint">{httpError.method} {httpError.url} · {httpError.capturedAt}</span></div><pre className="json-view">{httpError.body || "(empty response body)"}</pre></section>}
 
-          <section className="lower-grid">
-            <ResultCard title="SDK configuration preview"><pre className="json-view">{responseJson(configurationPreview)}</pre></ResultCard>
-            <ResultCard title={`Event log (${eventLog.length})`}>{eventLog.length ? <div className="event-log">{eventLog.map((event) => <div className="event-row" key={event.id}><span className="event-time">{event.time}</span><strong>{event.source}</strong><span>{event.action}</span>{event.recovered && <span className="recovered-text">RECOVERED</span>}{event.status !== undefined && <span className={event.status === ResponseCode.OK ? "ok-text" : "error-text"}>{event.status === ResponseCode.OK ? "OK" : "ERROR"}</span>}{event.reason && <code>{event.reason}</code>}</div>)}</div> : <p className="muted">SDK events будут отображены здесь.</p>}</ResultCard>
+          <section className={`lower-grid${httpError ? "" : " single-column"}`}>
+            {httpError && <section className="panel http-error-card">
+              <div className="http-error-title"><h3>Ответ сервиса</h3><span className="http-status-badge">HTTP {httpError.status} {httpError.statusText}</span></div>
+              <div className="http-error-meta"><span className="field-hint">Запрос</span><code>{httpError.method} {httpError.url}</code><span className="field-hint">Получен</span><span>{httpError.capturedAt}</span></div>
+              <div><span className="field-hint">Тело HTTP-ответа</span><pre className="json-view">{formatHttpResponseBody(httpError.body)}</pre></div>
+              <p className="hint">Это ответ Face API, перехваченный sample. События самой компоненты — в Event log → SDK CustomEvent.detail.</p>
+            </section>}
+            <ResultCard title={`Event log (${eventLog.length})`}>{eventLog.length ? <div className="event-log">{eventLog.map((event) => <div className="event-row" key={event.id}><span className="event-time">{event.time}</span><strong>{event.source}</strong><span>{event.action}</span>{event.recovered && <span className="recovered-text">RECOVERED</span>}{event.status !== undefined && <span className={event.status === ResponseCode.OK ? "ok-text" : "error-text"}>{event.status === ResponseCode.OK ? "OK" : "ERROR"}</span>}{event.reason && <code>{event.reason}</code>}{event.rawMsg && <code>{event.rawMsg}</code>}<details className="event-payload" open={event.status === ResponseCode.ERROR}><summary>SDK CustomEvent.detail</summary><pre className="json-view">{event.payload}</pre></details></div>)}</div> : <p className="muted">SDK events будут отображены здесь.</p>}</ResultCard>
           </section>
 
           {(rawRequests.enroll.start || rawRequests.enroll.process || rawRequests.verify.start || rawRequests.verify.process) && <section className="lower-grid raw-results">
@@ -629,7 +618,11 @@ function App() {
             {rawRequests.verify.start && <ResultCard title="Raw Verify request"><pre className="json-view">{responseJson(rawRequests.verify)}</pre></ResultCard>}
           </section>}
 
-          {(enrollResponse || verifyResponse || livenessResponse) && <section className="lower-grid raw-results">{enrollResponse && <ResultCard title="Raw Enroll response"><pre className="json-view">{responseJson(enrollResponse)}</pre></ResultCard>}{verifyResponse && <ResultCard title="Raw Verify response"><pre className="json-view">{responseJson(verifyResponse)}</pre></ResultCard>}{livenessResponse && <ResultCard title="Raw Liveness response"><pre className="json-view">{responseJson(livenessResponse)}</pre></ResultCard>}</section>}
+          {(enrollResponse || verifyResponse || livenessResponse || httpError) && <section className="lower-grid raw-results">
+            {(enrollResponse || httpError?.operation === "enroll") && <ResultCard title="Raw Enroll response">{httpError?.operation === "enroll" ? <><p className="hint">HTTP {httpError.status} {httpError.statusText} · {httpError.method} {httpError.url}</p><pre className="json-view">{httpError.body || "(empty response body)"}</pre></> : <pre className="json-view">{responseJson(enrollResponse)}</pre>}</ResultCard>}
+            {(verifyResponse || httpError?.operation === "verify") && <ResultCard title="Raw Verify response">{httpError?.operation === "verify" ? <><p className="hint">HTTP {httpError.status} {httpError.statusText} · {httpError.method} {httpError.url}</p><pre className="json-view">{httpError.body || "(empty response body)"}</pre></> : <pre className="json-view">{responseJson(verifyResponse)}</pre>}</ResultCard>}
+            {(livenessResponse || httpError?.operation === "liveness") && <ResultCard title="Raw Liveness response">{httpError?.operation === "liveness" ? <><p className="hint">HTTP {httpError.status} {httpError.statusText} · {httpError.method} {httpError.url}</p><pre className="json-view">{httpError.body || "(empty response body)"}</pre></> : <pre className="json-view">{responseJson(livenessResponse)}</pre>}</ResultCard>}
+          </section>}
         </main>
       )}
 

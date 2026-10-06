@@ -65,15 +65,25 @@ input:disabled { color: #aaa2a0; background: #f5f3f2; }
 .result-image { display: block; width: 100%; max-height: 180px; margin-bottom: 14px; border-radius: 10px; object-fit: cover; }
 .error-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid #e8b8b3; border-radius: 12px; padding: 14px 16px; color: #863f39; background: #fff2f0; }
 .error-banner .hint { width: 100%; color: #a16e69; }
-.http-error-card { display: grid; gap: 12px; border-color: #e8b8b3; }
-.http-error-card .hint { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.http-error-card { display: grid; align-self: stretch; align-content: start; gap: 12px; min-width: 0; border-color: #e8b8b3; padding: 18px; }
+.http-error-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.http-error-title h3 { margin: 0; font-size: 15px; }
+.http-status-badge { border-radius: 999px; padding: 4px 9px; color: #863f39; background: #fff2f0; font-size: 12px; font-weight: 700; }
+.http-error-meta { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: start; font-size: 12px; }
+.http-error-meta code { overflow-wrap: anywhere; color: #514847; }
+.http-error-card .hint { margin: 0; overflow-wrap: anywhere; }
+.http-error-card .json-view { max-height: 220px; margin-top: 6px; }
 .lower-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.lower-grid.single-column { grid-template-columns: minmax(0, 1fr); }
 .json-view { max-height: 330px; margin: 0; overflow: auto; border-radius: 9px; padding: 12px; color: #d9d2cf; background: #302b2a; font-size: 11px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .event-log { max-height: 330px; overflow: auto; }
 .event-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; border-bottom: 1px solid #f0eceb; padding: 9px 0; color: #514847; font-size: 11px; }
 .event-row:last-child { border-bottom: 0; }
 .event-time { color: #a09491; }
 .event-row code { color: #a84d44; }
+.event-payload { flex-basis: 100%; min-width: 0; }
+.event-payload summary { cursor: pointer; color: #766b68; font-size: 10px; }
+.event-payload .json-view { margin-top: 8px; }
 .ok-text { color: #2f8b5c; font-weight: 800; }
 .error-text { color: #bd5047; font-weight: 800; }
 .recovered-text { color: #8a7e7b; font-size: 10px; font-weight: 800; }
