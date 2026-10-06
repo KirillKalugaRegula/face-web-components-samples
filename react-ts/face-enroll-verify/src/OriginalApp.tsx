@@ -9,7 +9,7 @@ import {
 } from "@regulaforensics/vp-frontend-face-components";
 import "@regulaforensics/vp-frontend-face-components";
 
-const serviceUrl = import.meta.env.VITE_FACE_SERVICE_URL || "/face-api";
+const serviceUrl = "/face-api";
 
 const containerStyle: React.CSSProperties = {
   display: "flex",

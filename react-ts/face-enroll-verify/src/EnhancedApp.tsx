@@ -19,8 +19,8 @@ import {
 import "@regulaforensics/vp-frontend-face-components";
 import "./App.css";
 
-const faceServiceUrl = import.meta.env.VITE_FACE_SERVICE_URL || "/face-api";
-const faceServiceTargetUrl = "http://192.168.0.70:41101";
+const faceServiceUrl = "/face-api";
+const faceServiceTargetUrl = "http://127.0.0.1:41101";
 const storageKey = "face-enroll-verify-sample-v2";
 
 type Operation = "enroll" | "verify" | "liveness" | null;

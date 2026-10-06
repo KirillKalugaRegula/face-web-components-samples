@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 
 const faceApiProxy = {
   "/face-api": {
-    target: "http://192.168.0.70:41101",
+    target: "http://127.0.0.1:41101",
     changeOrigin: true,
     rewrite: (path: string) => path.replace(/^\/face-api/, ""),
   },

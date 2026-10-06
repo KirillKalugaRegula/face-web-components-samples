@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@regulaforensics/vp-frontend-face-components": "8.4.2418-nightly",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@regulaforensics/vp-frontend-face-components": "8.4.2417-nightly"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
