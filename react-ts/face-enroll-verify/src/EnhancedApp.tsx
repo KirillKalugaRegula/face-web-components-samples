@@ -45,6 +45,7 @@ type FormState = {
   duplicateSearchThreshold: string;
   duplicateSearchLimit: string;
   retryCount: string;
+  livenessType: FaceLivenessType;
   startScreen: boolean;
   finishScreen: boolean;
 };
@@ -100,6 +101,7 @@ const defaultFormState: FormState = {
   duplicateSearchThreshold: "0.8",
   duplicateSearchLimit: "1",
   retryCount: "0",
+  livenessType: FaceLivenessType.PASSIVE,
   startScreen: true,
   finishScreen: true,
 };
@@ -177,6 +179,12 @@ function livenessLabel(status: number | undefined): string {
   if (status === FaceLivenessResultStatus.NOT_CONFIRMED) return "not confirmed";
   if (status === FaceLivenessResultStatus.UNKNOWN) return "unknown";
   return "not available";
+}
+
+function livenessTypeLabel(type: FaceLivenessType): string {
+  if (type === FaceLivenessType.ACTIVE) return "Active";
+  if (type === FaceLivenessType.BLINK) return "Blink";
+  return "Passive";
 }
 
 function errorLabel(reason: string | undefined): string {
@@ -289,7 +297,7 @@ function App() {
   const commonSettings = React.useMemo<FaceLivenessSettings>(
     () => ({
       url: faceServiceUrl,
-      livenessType: FaceLivenessType.PASSIVE,
+      livenessType: form.livenessType,
       locale: "en",
       startScreen: form.startScreen,
       finishScreen: form.finishScreen,
@@ -300,7 +308,7 @@ function App() {
         retryScreenRetryButtonBackground: "#5b5050",
       },
     }),
-    [form.finishScreen, form.retryCount, form.startScreen, preset],
+    [form.finishScreen, form.livenessType, form.retryCount, form.startScreen, preset],
   );
 
   const enrollPerson = React.useMemo(() => {
@@ -539,7 +547,7 @@ function App() {
           <p className="muted">Расширенный тестовый sample для сценариев SDK и Face API.</p>
           <a className="sample-chooser-link" href="/">← Sample chooser</a>
         </div>
-        <div className="service-chip"><span className="status-dot" /><span>Passive liveness</span><code>{faceServiceUrl} → {faceServiceTargetUrl}</code></div>
+        <div className="service-chip"><span className="status-dot" /><span>{livenessTypeLabel(form.livenessType)} liveness</span><code>{faceServiceUrl} → {faceServiceTargetUrl}</code></div>
       </header>
 
       {!openComponent && (
@@ -581,8 +589,11 @@ function App() {
             <div className="form-grid small-grid">
               <label>Similarity threshold<input type="number" min="0" max="1" step="0.01" value={form.threshold} placeholder="service default" onChange={(event) => updateForm({ threshold: event.target.value })} /></label>
               <label>Liveness retry count<input type="number" min="0" step="1" value={form.retryCount} onChange={(event) => updateForm({ retryCount: event.target.value })} /><span className="field-hint">0 = unlimited</span></label>
-              <label className="toggle-label"><input type="checkbox" checked={form.startScreen} onChange={(event) => updateForm({ startScreen: event.target.checked })} />Start screen</label>
-              <label className="toggle-label"><input type="checkbox" checked={form.finishScreen} onChange={(event) => updateForm({ finishScreen: event.target.checked })} />Finish screen</label>
+              <label>Liveness type<select value={form.livenessType} onChange={(event) => updateForm({ livenessType: Number(event.target.value) as FaceLivenessType })}><option value={FaceLivenessType.PASSIVE}>Passive</option><option value={FaceLivenessType.ACTIVE}>Active</option><option value={FaceLivenessType.BLINK}>Blink</option></select></label>
+              <div className="screen-options">
+                <label className="toggle-label"><input type="checkbox" checked={form.startScreen} onChange={(event) => updateForm({ startScreen: event.target.checked })} />Start screen</label>
+                <label className="toggle-label"><input type="checkbox" checked={form.finishScreen} onChange={(event) => updateForm({ finishScreen: event.target.checked })} />Finish screen</label>
+              </div>
             </div>
 
             <div className="action-row">
@@ -598,7 +609,7 @@ function App() {
             <ResultCard title="Saved profile" tone={form.personId || form.externalId ? "success" : "neutral"}><dl className="data-list"><dt>personId</dt><dd>{form.personId || "—"}</dd><dt>externalId</dt><dd>{form.externalId || "—"}</dd><dt>Persistence</dt><dd>localStorage</dd></dl><p className="hint">Enroll сохраняет оба идентификатора; текущий SDK выполняет Verify только по personId.</p></ResultCard>
             <ResultCard title="Enroll result" tone={enrollResponse ? "success" : "neutral"}>{enrollResponse ? <><ResultImage images={enrollResponse.images} /><dl className="data-list"><dt>Enrolled</dt><dd>{String(enrollResponse.enrollResult?.enrolled)}</dd><dt>Liveness</dt><dd>{livenessLabel(enrollResponse.status)}</dd><dt>Person</dt><dd>{enrollResponse.enrollResult?.person?.name || enrollResponse.enrollResult?.search?.persons?.[0]?.name || "—"}</dd><dt>Duplicates</dt><dd>{enrollResponse.enrollResult?.search?.persons?.length ?? 0}</dd></dl>{enrollResponse.enrollResult?.search?.persons?.length ? <div className="search-results">{enrollResponse.enrollResult.search.persons.map((person) => <div className="search-result-row" key={person.id}><strong>{person.name || "Unnamed"}</strong><span>{person.externalId || person.id}</span></div>)}</div> : null}</> : <p className="muted">Результат появится после Enroll.</p>}</ResultCard>
             <ResultCard title="Verify result" tone={verifyResponse?.verifyResult?.verified ? "success" : "neutral"}>{verifyResponse ? <dl className="data-list"><dt>Verified</dt><dd>{String(verifyResponse.verifyResult?.verified)}</dd><dt>Match</dt><dd>{String(verifyResponse.verifyResult?.match?.verified ?? false)}</dd><dt>Similarity</dt><dd>{formatSimilarity(verifyResponse.verifyResult?.match?.similarity)}</dd><dt>Liveness</dt><dd>{livenessLabel(verifyResponse.status)}</dd></dl> : <p className="muted">Результат появится после Verify.</p>}</ResultCard>
-            <ResultCard title="Liveness result" tone={livenessResponse?.status === FaceLivenessResultStatus.CONFIRMED ? "success" : "neutral"}>{livenessResponse ? <dl className="data-list"><dt>Status</dt><dd>{livenessLabel(livenessResponse.status)}</dd><dt>Type</dt><dd>{livenessResponse.type} / passive = 1</dd><dt>Transaction</dt><dd>{livenessResponse.transactionId || "—"}</dd></dl> : <p className="muted">Можно проверить liveness отдельно.</p>}</ResultCard>
+            <ResultCard title="Liveness result" tone={livenessResponse?.status === FaceLivenessResultStatus.CONFIRMED ? "success" : "neutral"}>{livenessResponse ? <dl className="data-list"><dt>Status</dt><dd>{livenessLabel(livenessResponse.status)}</dd><dt>Type</dt><dd>{livenessTypeLabel(livenessResponse.type as FaceLivenessType)}</dd><dt>Transaction</dt><dd>{livenessResponse.transactionId || "—"}</dd></dl> : <p className="muted">Можно проверить liveness отдельно.</p>}</ResultCard>
           </section>
 
           {lastError && <section className="error-banner"><strong>Error</strong><span>{lastError}</span><span className="hint">Событие SDK и тело HTTP-ответа, если SDK получил ответ от сервиса.</span></section>}
